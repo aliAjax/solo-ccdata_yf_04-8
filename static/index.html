@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>退款清算台</title>
+<link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+<header>
+  <div class="brand">
+    <span class="logo">⟲</span>
+    <div>
+      <h1>退款清算台</h1>
+      <p class="sub">离线清算 · 冻结/确认/释放 · 按原支付方式与券份额回冲</p>
+    </div>
+  </div>
+  <div class="header-right">
+    <span id="verifyBadge" class="badge muted">未核对</span>
+    <button id="btnVerify" class="btn ghost">核对账务</button>
+    <button id="btnRefresh" class="btn ghost">刷新</button>
+  </div>
+</header>
+
+<nav class="tabs">
+  <button class="tab active" data-tab="import">① 数据导入</button>
+  <button class="tab" data-tab="orders">② 订单与退款</button>
+  <button class="tab" data-tab="refunds">③ 退款单</button>
+  <button class="tab" data-tab="ledger">④ 资金台账</button>
+  <button class="tab" data-tab="recon">⑤ 对账与导出</button>
+</nav>
+
+<main>
+  <!-- 导入 -->
+  <section id="tab-import" class="panel active">
+    <div class="actions-row">
+      <button id="btnSample" class="btn primary">一键导入示例数据</button>
+      <button id="btnReset" class="btn danger">清空全部数据</button>
+      <span class="hint">CSV 首行为表头；金额单位为元，支持两位小数；fx_rate 为 1 单位订单币种折合的基准币（CNY）。</span>
+    </div>
+    <div class="import-grid">
+      <div class="card">
+        <h3>订单 orders</h3>
+        <textarea id="csvOrders" spellcheck="false" placeholder="order_no,currency,fx_rate,total&#10;ORD1001,CNY,1,1200.00"></textarea>
+        <button class="btn" data-import="orders">导入订单</button>
+      </div>
+      <div class="card">
+        <h3>支付流水 payments</h3>
+        <textarea id="csvPayments" spellcheck="false" placeholder="payment_no,order_no,method,amount&#10;PAY9001,ORD1001,银行卡,700.00"></textarea>
+        <button class="btn" data-import="payments">导入支付流水</button>
+      </div>
+      <div class="card">
+        <h3>优惠分摊 discounts</h3>
+        <textarea id="csvDiscounts" spellcheck="false" placeholder="alloc_no,order_no,coupon_no,amount&#10;DIS001,ORD1001,CPN-NEWUSER,100.00"></textarea>
+        <button class="btn" data-import="discounts">导入优惠分摊</button>
+      </div>
+    </div>
+    <div id="importResult" class="result-box hidden"></div>
+  </section>
+
+  <!-- 订单与退款 -->
+  <section id="tab-orders" class="panel">
+    <h2>订单余额</h2>
+    <div class="table-wrap"><table id="ordersTable">
+      <thead><tr>
+        <th>订单号</th><th>币种</th><th>成交汇率</th><th class="num">订单金额</th>
+        <th class="num">资金池</th><th class="num">冻结中</th><th class="num">已退</th>
+        <th class="num">可退余额</th><th class="num">可退(基准币)</th>
+      </tr></thead>
+      <tbody></tbody>
+    </table></div>
+
+    <h2>发起退款</h2>
+    <div class="refund-form card">
+      <div class="form-row">
+        <label>订单
+          <select id="refOrder"></select>
+        </label>
+        <label>金额
+          <input id="refAmount" type="text" inputmode="decimal" placeholder="0.00">
+        </label>
+        <label>币种
+          <select id="refCurrency"></select>
+        </label>
+        <label class="grow">原因
+          <input id="refReason" type="text" placeholder="退款原因（可选）">
+        </label>
+      </div>
+      <div class="form-row">
+        <button id="btnTrial" class="btn">试算</button>
+        <button id="btnFreeze" class="btn primary" disabled>提交冻结</button>
+        <span class="hint">试算预览分摊结果；提交后额度被冻结，确认记账才出账，撤销则原样释放。</span>
+      </div>
+      <div id="trialResult" class="result-box hidden"></div>
+    </div>
+  </section>
+
+  <!-- 退款单 -->
+  <section id="tab-refunds" class="panel">
+    <h2>退款单</h2>
+    <div id="refundList" class="refund-list"></div>
+  </section>
+
+  <!-- 台账 -->
+  <section id="tab-ledger" class="panel">
+    <h2>资金台账 <span class="hint">只增不改：冻结 / 记账 / 释放 / 冲正 四类分录，含操作后可退余额</span></h2>
+    <div class="table-wrap"><table id="ledgerTable">
+      <thead><tr>
+        <th>#</th><th>时间</th><th>退款单</th><th>订单</th><th>动作</th>
+        <th>来源</th><th>方式</th><th class="num">金额</th><th class="num">基准币</th>
+        <th class="num">操作后可退</th><th>备注</th>
+      </tr></thead>
+      <tbody></tbody>
+    </table></div>
+  </section>
+
+  <!-- 对账 -->
+  <section id="tab-recon" class="panel">
+    <h2>对账单</h2>
+    <div class="actions-row">
+      <a class="btn" href="/api/export/reconciliation.csv" download>导出对账单 CSV</a>
+      <a class="btn" href="/api/export/refunds.csv" download>导出退款明细 CSV</a>
+      <a class="btn" href="/api/export/ledger.csv" download>导出台账 CSV</a>
+      <button id="btnVerify2" class="btn ghost">重新核对</button>
+    </div>
+    <div id="verifyResult" class="result-box hidden"></div>
+    <div class="table-wrap"><table id="reconTable">
+      <thead><tr>
+        <th>订单号</th><th>币种</th><th>汇率</th><th class="num">订单金额</th>
+        <th class="num">资金池</th><th class="num">冻结中</th><th class="num">已退</th>
+        <th class="num">可退</th><th class="num">资金池(基准币)</th><th class="num">已退(基准币)</th>
+      </tr></thead>
+      <tbody></tbody>
+    </table></div>
+  </section>
+</main>
+
+<div id="toast" class="toast hidden"></div>
+<script src="/static/app.js"></script>
+</body>
+</html>

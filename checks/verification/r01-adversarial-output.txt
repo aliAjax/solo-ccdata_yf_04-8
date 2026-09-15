@@ -1,0 +1,16 @@
+{
+  "checks": [
+    {
+      "name": "crossStoreConcurrentFreeze",
+      "successes": 10,
+      "frozenMinor": 10000,
+      "availableMinor": 0,
+      "verifyOk": true
+    },
+    {
+      "name": "idempotencyConflictRollback",
+      "code": "IDEMPOTENCY_KEY_REUSE"
+    }
+  ],
+  "issues": []
+}
